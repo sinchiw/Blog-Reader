@@ -7,17 +7,22 @@
 //
 
 import UIKit
+import WebKit
 
 class DetailViewController: UIViewController {
 
+    @IBOutlet weak var webView: WKWebView!
     @IBOutlet weak var detailDescriptionLabel: UILabel!
 
 
     func configureView() {
         // Update the user interface for the detail item.
+        
         if let detail = detailItem {
-            if let label = detailDescriptionLabel {
-                label.text = detail.timestamp!.description
+            self.title = detail.value(forKey: "title") as? String
+            if let blogWebView = self.webView {
+                blogWebView.loadHTMLString((detail.value(forKey: "content") as? String)!, baseURL: nil)
+                // almost all of the link, absolute links, (https ), you dont need the bsae url
             }
         }
     }

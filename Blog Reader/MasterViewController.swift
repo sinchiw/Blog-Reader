@@ -9,29 +9,147 @@
 import UIKit
 import CoreData
 
-class MasterViewController: UITableViewController, NSFetchedResultsControllerDelegate {
+//go to blooger website and use your google account to make the api key
+//enable blogger api
+// retreive a blog by a url
+//https://www.googleapis.com/blogger/v3/blogs/2399953?key=AIzaSyBoKw1b3lZIvvMRdAHt_9YYvFbVUaYGYSs
+//use your api key to make the url work
+//when access to the website it will give you in the json format
 
+
+//Retrieving a blog by its URL
+
+
+
+// see if you can get the id number for a particular blog,  google blog spot in this case.
+//https://www.googleapis.com/blogger/v3/blogs/byurl?url=https://googleblog.blogspot.com/index.html&key=AIzaSyD9l7_goluzyvxqOaMLGbjWvg-L7AsLums
+// remmber to change the ? to & since you have two things going on.
+//and copy the blogspot url in the the api website
+
+// now we go back to the api url, and change the id with googleblogspout id number that you got from the last link
+//https://www.googleapis.com/blogger/v3/blogs/10861780?key=AIzaSyBoKw1b3lZIvvMRdAHt_9YYvFbVUaYGYSs
+
+
+//Retrieving posts from a blog
+//https://www.googleapis.com/blogger/v3/blogs/10861780/posts?key=AIzaSyBoKw1b3lZIvvMRdAHt_9YYvFbVUaYGYSs
+
+
+
+
+
+
+// when you use the masterViewController this is all is created for you along with the coredata modle and more.
+
+class MasterViewController: UITableViewController, NSFetchedResultsControllerDelegate {
+// this was created for you
     var detailViewController: DetailViewController? = nil
     var managedObjectContext: NSManagedObjectContext? = nil
 
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        let url = URL(string: "https://www.googleapis.com/blogger/v3/blogs/10861780/posts?key=AIzaSyBoKw1b3lZIvvMRdAHt_9YYvFbVUaYGYSs")
+        let task  = URLSession.shared.dataTask(with: url!) { (data, response, error) in
+            if error != nil {
+                print(error)
+                
+            } else {
+                if let urlContent = data {
+//                    print(urlContent)
+                    do {
+                        //It's not the friendliest response because we didn't encode it using UTF 8. so we use this code to encode it
+                        let jsonResult = try JSONSerialization.jsonObject(with: urlContent, options: JSONSerialization.ReadingOptions.mutableContainers) as AnyObject
+//                        print(jsonResult)
+                        
+                        if let items = jsonResult["items"] as? NSArray {
+                            let context = self.fetchedResultsController.managedObjectContext
+                            let request =  NSFetchRequest<Event>(entityName: "Event")
+                            do {
+                                let results = try context.fetch(request)
+                                
+                                if results.count > 0 {
+                                    for result in results {
+                                        // this help delete duplikcate copies of...inside of the array when it reload, since it keep on adding to eachother , since its item has more array 
+                                        context.delete(result)
+                                        do {
+                                            try context.save()
+                                        } catch{ print("specidfic delete failed")
+                                            
+                                        }
+                                        
+                                    }
+                                }
+                            } catch {
+                                print("delete failed")
+                            }
+                            
+                            for item in items as [AnyObject] {
+                                print(item)
+                                
+                                print(item["published"])
+                                print(item["title"])
+                                print(item["content"])
+                                // when you look into the term, you can see it under  optional
+                                
+                                // next step is to save the data , so create an entity called event and make two attribute call title, timestamp
+                                
+//                                let context = self.fetchedResultsController.managedObjectContext
+//                                OUR NEW OBJECT IN THEDATA BASE
+                                let newEvent = Event(context: context)
+                                
+                                // If appropriate, configure the new managed object.
+                                newEvent.timestamp = Date()
+                                // where you save the poublished in the attrubute
+                                newEvent.setValue(item["published"] as! String, forKey: "published")
+                                newEvent.setValue(item["title"] as! String, forKey: "title")
+                                newEvent.setValue(item["content"] as! String, forKey: "content")
+                                // Save the context.
+                                do {
+                                    try context.save()
+                                    //once it save we must uplaod it to the table view
+                                    
+                                } catch {
+                                    // Replace this implementation with code to handle the error appropriately.
+                                    // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
+                                    let nserror = error as NSError
+                                    fatalError("Unresolved error \(nserror), \(nserror.userInfo)")
+                                }
+                                
+                            }
+                            
+                            DispatchQueue.main.async(execute:  {
+                                self.tableView.reloadData()
+                            })
+                        }
+                    } catch {
+                        print("JSON PROCCESING FAILED")
+                    }
+                }
+            }
+            
+        
+        }
+        
         // Do any additional setup after loading the view, typically from a nib.
-        navigationItem.leftBarButtonItem = editButtonItem
+      
+        //we do not need this code
+        
+        /* navigationItem.leftBarButtonItem = editButtonItem
 
         let addButton = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(insertNewObject(_:)))
         navigationItem.rightBarButtonItem = addButton
         if let split = splitViewController {
             let controllers = split.viewControllers
             detailViewController = (controllers[controllers.count-1] as! UINavigationController).topViewController as? DetailViewController
-        }
+        } */
+        task.resume()
     }
-
+/*
     override func viewWillAppear(_ animated: Bool) {
         clearsSelectionOnViewWillAppear = splitViewController!.isCollapsed
         super.viewWillAppear(animated)
-    }
+    } */
 
     @objc
     func insertNewObject(_ sender: Any) {
@@ -106,7 +224,7 @@ class MasterViewController: UITableViewController, NSFetchedResultsControllerDel
     }
 
     func configureCell(_ cell: UITableViewCell, withEvent event: Event) {
-        cell.textLabel!.text = event.timestamp!.description
+        cell.textLabel!.text = event.value(forKey: "title") as? String// we can since the type of data is a string
     }
 
     // MARK: - Fetched results controller
@@ -122,7 +240,8 @@ class MasterViewController: UITableViewController, NSFetchedResultsControllerDel
         fetchRequest.fetchBatchSize = 20
         
         // Edit the sort key as appropriate.
-        let sortDescriptor = NSSortDescriptor(key: "timestamp", ascending: false)
+        //change the key to published, you can see the new result first 
+        let sortDescriptor = NSSortDescriptor(key: "published", ascending: false)
         
         fetchRequest.sortDescriptors = [sortDescriptor]
         
